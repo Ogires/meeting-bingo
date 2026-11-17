@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+coverage/
+
+# Angular
+node_modules/
+.angular/
+web/dist/
+
+# Working notes: not published
+propuestas/
+docs/plans/*-plan.md
+docs/guia-estudio*
