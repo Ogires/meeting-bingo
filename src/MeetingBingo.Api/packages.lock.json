@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "meetingbingo.core": {
+        "type": "Project"
+      },
+      "meetingbingo.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "MeetingBingo.Core": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

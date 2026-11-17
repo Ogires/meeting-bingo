@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MeetingBingo.Api/MeetingBingo.Api.csproj" />
+    <Project Path="src/MeetingBingo.Core/MeetingBingo.Core.csproj" />
+    <Project Path="src/MeetingBingo.Infrastructure/MeetingBingo.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MeetingBingo.Core.Tests/MeetingBingo.Core.Tests.csproj" />
+    <Project Path="tests/MeetingBingo.IntegrationTests/MeetingBingo.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
