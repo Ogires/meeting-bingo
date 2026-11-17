@@ -108,7 +108,7 @@ A typed hub (`Hub<IBingoClient>`) with one group per room.
 | Method | Route | Purpose |
 |---|---|---|
 | `POST` | `/api/rooms` | Creates a room and returns its code (rate-limited per IP) |
-| `GET` | `/api/stats` | Top phrases of the week, served from `HybridCache`, with the time they were computed |
+| `GET` | `/api/stats` | Top phrases of the week, served from an in-memory snapshot, with the time they were computed |
 | `GET` | `/healthz` | Liveness probe. It never touches SQL, so probes don't wake the database |
 
 Errors are returned as ProblemDetails (RFC 9457) by a global `IExceptionHandler`, with no internal details.
@@ -118,10 +118,11 @@ Errors are returned as ProblemDetails (RFC 9457) by a global `IExceptionHandler`
 The Azure SQL free offer gives 100,000 vCore-seconds a month per database. A paused database takes about a minute to wake up and then stays online at least 15 minutes after its last query. If every mark were written to SQL, the first player would wait that minute and the monthly allowance would run out within a few busy days. So no web request ever waits for SQL:
 
 - When a room closes, its summary goes into a bounded `Channel<GameSummary>`. If the channel is full, the oldest summary is dropped and counted in a metric.
-- The Recorder writes the summaries in batches during a window every 6 hours (configurable) and when the container shuts down. It refreshes the statistics over the same connection, and the web serves them from `HybridCache`.
+- The Recorder writes the summaries in batches during a window every 6 hours (configurable) and when the container shuts down. On shutdown, the Sweeper first closes every open room, so their summaries reach that last flush.
+- **Statistics snapshot.** After each write, the Recorder recomputes the weekly statistics over the same connection and stores them in an in-memory snapshot, which `/api/stats` serves. A freshly started container loads the snapshot once, in the background, so it shows statistics without making anyone wait. A read-through cache would be the wrong tool here: an expired entry would wake the database on the next visit.
 - **Idempotent writes.** Each game gets a `GameId` when it ends, and the Recorder skips games that already exist. When a connection drops while a transaction commits, EF Core retries without knowing whether the commit succeeded; with the `GameId`, that retry cannot duplicate a game.
 - **Retries.** EF Core retries transient errors (`EnableRetryOnFailure`) within the window. If the batch still fails, it waits for the next window.
-- **Running out.** The database wakes up once per window, plus once per scale-to-zero shutdown that has pending summaries. If the monthly allowance runs out, the database pauses until the next month. Games keep working; the statistics freeze and the home page says how old they are.
+- **Running out.** The database wakes up once per window, once when a container starts, and once per scale-to-zero shutdown that has pending summaries. If the monthly allowance runs out, the database pauses until the next month. Games keep working; the statistics freeze and the home page says how old they are.
 
 **Tables:**
 - `Games`: id, start, end, players, bingos.
@@ -197,10 +198,10 @@ With scale to zero, the first visitor waits for the container to start. It is me
 2. **Image:** a multi-stage Dockerfile (Node builds Angular, the .NET SDK publishes, a chiseled ASP.NET runtime image runs it with no shell and as a non-root user). It is pushed to `ghcr.io/ogires/meeting-bingo:<sha>`.
 3. **Deploy,** only from `main`:
    - `azure/login` with **OIDC**. GitHub stores no secrets, only the tenant, subscription and client ids, which are not secret.
-   - EF Core migrations run as a pipeline step, from a migrations bundle, never at app startup. The CI identity is the database's Entra administrator.
+   - EF Core migrations run as a pipeline step, from a migrations bundle, never at app startup. The CI identity is the database's Entra administrator. The GitHub runner is not an Azure service, so its IP is allowed in the SQL firewall only during that step, and the rule is removed even if the job fails.
    - A T-SQL step creates the app identity as a database user with `db_datareader` and `db_datawriter` only. Bicep manages Azure resources but cannot reach inside the database.
    - `az containerapp update` switches to the new image, then a smoke test checks `/healthz`, the security headers and room creation.
-4. **Infrastructure:** a manually triggered workflow runs Bicep `what-if` before applying.
+4. **Infrastructure:** applied from the Azure CLI, always after a Bicep `what-if`. Applying it from a workflow would need an identity with far more rights than the deploy identity (it creates role assignments), so that is left for later, behind a GitHub environment with a required reviewer.
 
 ## 6. Failure handling and observability
 
