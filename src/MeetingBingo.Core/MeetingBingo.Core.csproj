@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Single source of truth: the Angular app imports the same file for the printable card.
+         WithCulture="false": otherwise MSBuild reads ".es." as a culture and moves the file
+         into an "es" satellite assembly instead of this one. -->
+    <EmbeddedResource Include="..\..\data\phrases.es.json" LogicalName="phrases.es.json" WithCulture="false" />
+  </ItemGroup>
+
 </Project>
