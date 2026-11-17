@@ -1,3 +1,4 @@
+using MeetingBingo.Core.Games;
 using MeetingBingo.Core.Phrases;
 
 namespace MeetingBingo.Core.Rooms;
@@ -19,6 +20,8 @@ public sealed class Room
     private readonly TimeProvider _time;
     private readonly Dictionary<string, Player> _players = new(StringComparer.Ordinal);
     private readonly Dictionary<int, PhraseState> _phrases = [];
+    private int _bingos;
+    private bool _closed;
 
     public Room(string code, PhraseCatalog catalog, Random random, TimeProvider time)
     {
@@ -39,6 +42,7 @@ public sealed class Room
     {
         lock (_gate)
         {
+            if (_closed) return new(JoinStatus.Closed);
             var now = _time.GetUtcNow();
 
             if (token is not null && _players.TryGetValue(token, out var existing))
@@ -74,6 +78,7 @@ public sealed class Room
     {
         lock (_gate)
         {
+            if (_closed) return ToggleOutcome.Rejected(ToggleStatus.Closed);
             if (!_players.TryGetValue(token, out var player)) return ToggleOutcome.Rejected(ToggleStatus.NotInRoom);
             if (index is < 0 or >= Card.CellCount || index == Card.FreeIndex)
                 return ToggleOutcome.Rejected(ToggleStatus.InvalidCell);
@@ -99,8 +104,29 @@ public sealed class Room
             var newLines = new List<string>();
             foreach (var line in Card.CompletedLines(player.Marked))
                 if (player.AnnouncedLines.Add(line.Name)) newLines.Add(line.Name);
+            _bingos += newLines.Count;
 
             return new(ToggleStatus.Marked, ToUpdate(phraseId, state), newLines, player.Alias);
+        }
+    }
+
+    /// <summary>Closes the room for good. Returns its summary, or null if nobody ever joined or it was already closed.</summary>
+    public GameSummary? Close()
+    {
+        lock (_gate)
+        {
+            if (_closed) return null;
+            _closed = true;
+            if (_players.Count == 0) return null;
+
+            var endedAt = _time.GetUtcNow();
+            var tallies = _phrases
+                .Where(kv => kv.Value.EverMarkedBy.Count > 0)
+                .Select(kv => new PhraseTally(kv.Key, kv.Value.EverMarkedBy.Count, kv.Value.Confirmed))
+                .OrderBy(t => t.PhraseId)
+                .ToList();
+            // The id is the Recorder's idempotency key: a retried write cannot duplicate the game
+            return new GameSummary(Guid.CreateVersion7(endedAt), CreatedAt, endedAt, _players.Count, _bingos, tallies);
         }
     }
 
