@@ -70,6 +70,40 @@ public sealed class Room
         }
     }
 
+    public ToggleOutcome Toggle(string token, int index)
+    {
+        lock (_gate)
+        {
+            if (!_players.TryGetValue(token, out var player)) return ToggleOutcome.Rejected(ToggleStatus.NotInRoom);
+            if (index is < 0 or >= Card.CellCount || index == Card.FreeIndex)
+                return ToggleOutcome.Rejected(ToggleStatus.InvalidCell);
+
+            var now = _time.GetUtcNow();
+            Touch(now);
+            var phraseId = player.Card.Cells[index]!.Value;
+            if (!_phrases.TryGetValue(phraseId, out var state)) _phrases[phraseId] = state = new PhraseState();
+
+            if (player.Marked.Remove(index))
+            {
+                state.CurrentMarks.Remove(player.Token);
+                return new(ToggleStatus.Unmarked, ToUpdate(phraseId, state), [], player.Alias);
+            }
+
+            player.Marked.Add(index);
+            state.CurrentMarks[player.Token] = now;
+            state.EverMarkedBy.Add(player.Token);
+            // Confirmed when at least two players have it marked within the window; once confirmed, it stays
+            if (!state.Confirmed && state.CurrentMarks.Values.Count(at => now - at <= ConfirmationWindow) >= 2)
+                state.Confirmed = true;
+
+            var newLines = new List<string>();
+            foreach (var line in Card.CompletedLines(player.Marked))
+                if (player.AnnouncedLines.Add(line.Name)) newLines.Add(line.Name);
+
+            return new(ToggleStatus.Marked, ToUpdate(phraseId, state), newLines, player.Alias);
+        }
+    }
+
     public bool IsExpired(DateTimeOffset now)
     {
         lock (_gate)
