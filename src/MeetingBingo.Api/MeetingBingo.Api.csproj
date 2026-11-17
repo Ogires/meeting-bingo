@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MeetingBingo.Core\MeetingBingo.Core.csproj" />
     <ProjectReference Include="..\MeetingBingo.Infrastructure\MeetingBingo.Infrastructure.csproj" />
+    <ProjectReference Include="..\MeetingBingo.ServiceDefaults\MeetingBingo.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
