@@ -1,0 +1,14 @@
+# Git history: not needed to build, and it could leak old files
+.git
+
+# Build and dependency output, at any depth (** = any folder)
+**/bin
+**/obj
+**/node_modules
+**/.angular
+web/dist
+**/TestResults
+.vs
+
+# Private notes (plan, study guide): never inside an image
+docs
