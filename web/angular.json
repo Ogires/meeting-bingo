@@ -42,7 +42,10 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "security": {
+                "autoCsp": true
+              }
             },
             "development": {
               "optimization": false,

@@ -3,6 +3,7 @@ using MeetingBingo.Api.Errors;
 using MeetingBingo.Api.Hubs;
 using MeetingBingo.Api.Recording;
 using MeetingBingo.Api.Rooms;
+using MeetingBingo.Api.Security;
 using MeetingBingo.Core.Games;
 using MeetingBingo.Core.Phrases;
 using MeetingBingo.Core.Rooms;
@@ -36,11 +37,22 @@ builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 
 var app = builder.Build();
 
+app.UseSecurityHeaders();
 app.UseExceptionHandler();
+// HSTS is only sent over HTTPS. Behind Azure's ingress the request arrives over HTTP until
+// ForwardedHeaders (S4) restores the original scheme, so in production it starts working with S4.
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
 
 // /healthz (liveness, never touches SQL) in every environment; the full /health report only in development
 app.MapDefaultEndpoints();
 app.MapRoomsApi();
 app.MapHub<BingoHub>("/hubs/bingo");
+
+// The Angular app, copied into wwwroot by the Dockerfile: files (with their precompressed versions),
+// and index.html for the app's own routes (/s/ABCDE, /imprimir). An unknown API route is a 404, not the app.
+app.MapStaticAssets();
+app.MapFallback("/api/{**path}", () => Results.NotFound());
+app.MapFallbackToFile("index.html");
 
 app.Run();
