@@ -1,5 +1,9 @@
+using System.Net.Http.Json;
+using MeetingBingo.Api.Rooms;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -25,5 +29,32 @@ public sealed class BingoApiFactory : WebApplicationFactory<Program>
         {
             services.AddSingleton<TimeProvider>(Time);
         });
+    }
+
+    /// <summary>Creates a room through the API and returns its code.</summary>
+    public async Task<string> CreateRoomAsync(CancellationToken ct)
+    {
+        using var client = CreateClient();
+        var response = await client.PostAsync("/api/rooms", content: null, ct);
+        response.EnsureSuccessStatusCode();
+        var room = await response.Content.ReadFromJsonAsync<CreatedRoom>(ct);
+        return room!.Code;
+    }
+
+    /// <summary>A SignalR connection to the hub, already started. Dispose it with <c>await using</c>.</summary>
+    public async Task<HubConnection> ConnectAsync(CancellationToken ct)
+    {
+        var connection = new HubConnectionBuilder()
+            .WithUrl(new Uri(Server.BaseAddress, "hubs/bingo"), options =>
+            {
+                // The requests go to the in-memory server, not to the network
+                options.HttpMessageHandlerFactory = _ => Server.CreateHandler();
+                // Long polling is plain HTTP requests: the simplest transport against the TestServer
+                options.Transports = HttpTransportType.LongPolling;
+            })
+            .Build();
+
+        await connection.StartAsync(ct);
+        return connection;
     }
 }
