@@ -1,4 +1,5 @@
 using MeetingBingo.Core.Rooms;
+
 using Microsoft.Extensions.Time.Testing;
 
 namespace MeetingBingo.Core.Tests.Rooms;

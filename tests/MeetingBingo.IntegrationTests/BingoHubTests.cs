@@ -1,4 +1,5 @@
 using MeetingBingo.Core.Rooms;
+
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace MeetingBingo.IntegrationTests;
