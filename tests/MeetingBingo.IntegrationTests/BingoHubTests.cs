@@ -59,4 +59,20 @@ public sealed class BingoHubTests(BingoApiFactory factory) : IClassFixture<Bingo
 
         Assert.Equal(secondPlayer.Alias, await left.Task.WaitAsync(EventTimeout, ct));
     }
+
+    [Fact]
+    public async Task A_player_can_rejoin_after_disconnecting()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var code = await factory.CreateRoomAsync(ct);
+
+        await using var first = await factory.ConnectAsync(ct);
+        var before = await first.InvokeAsync<PlayerSnapshot>("JoinRoom", code, null, ct);
+        string oldToken = before.Token;
+
+        await first.StopAsync(ct);
+        await using var second = await factory.ConnectAsync(ct);
+        var after = await second.InvokeAsync<PlayerSnapshot>("JoinRoom", code, oldToken, ct);
+        Assert.Equivalent(before, after);
+    }
 }
