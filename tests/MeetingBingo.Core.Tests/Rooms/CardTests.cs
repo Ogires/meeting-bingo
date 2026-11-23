@@ -1,3 +1,5 @@
+using System.Net;
+
 using MeetingBingo.Core.Phrases;
 using MeetingBingo.Core.Rooms;
 
@@ -42,4 +44,21 @@ public class CardTests
     [Fact]
     public void Four_cells_of_a_row_are_not_a_line() =>
         Assert.Empty(Card.CompletedLines(new HashSet<int> { 0, 1, 2, 3 }));
+
+    public static TheoryData<int[], string[]> Combinations => new()
+    {
+        // Four cells of a row: no line
+        { [0, 1, 2, 3], [] },
+        // One row
+        { [0, 1, 2, 3, 4], ["row-1"] },
+        // The first row and the first column, which share cell 0
+        { [0, 1, 2, 3, 4, 5, 10, 15, 20], ["row-1", "col-1"] },
+        // The whole card: every line, in the order of Line.All
+        { Enumerable.Range(0, Card.CellCount).ToArray(), Line.All.Select(l => l.Name).ToArray() },
+    };
+
+    [Theory]
+    [MemberData(nameof(Combinations))]
+    public void Completed_lines_are_detected_correctly(int[] marked, string[] expected) =>
+        Assert.Equal(expected, Card.CompletedLines(marked.ToHashSet()).Select(l => l.Name));
 }
