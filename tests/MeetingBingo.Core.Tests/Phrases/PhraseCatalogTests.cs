@@ -45,6 +45,15 @@ public class PhraseCatalogTests
     public void A_catalog_too_small_to_fill_a_card_is_rejected() =>
         Assert.Throws<InvalidDataException>(() => PhraseCatalog.FromJson(Json((1, "A"), (2, "B"))));
 
+    [Theory]
+    [InlineData("null", "empty")]
+    [InlineData("[]", "at least")]
+    public void An_empty_catalog_is_rejected_with_explanation(string json, string reason)
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => PhraseCatalog.FromJson(json, minPhrases: 24));
+        Assert.Contains(reason, ex.Message);
+    }
+
     private static string Json(params (int Id, string Text)[] items) =>
         JsonSerializer.Serialize(items.Select(i => new { id = i.Id, text = i.Text, category = "jargon" }));
 }
