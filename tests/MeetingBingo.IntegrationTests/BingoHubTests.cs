@@ -1,5 +1,7 @@
 using MeetingBingo.Core.Rooms;
 
+using Microsoft.AspNetCore.SignalR;
+
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace MeetingBingo.IntegrationTests;
@@ -24,5 +26,18 @@ public sealed class BingoHubTests(BingoApiFactory factory) : IClassFixture<Bingo
         var secondPlayer = await second.InvokeAsync<PlayerSnapshot>("JoinRoom", code, null, ct);
 
         Assert.Equal(secondPlayer.Alias, await joined.Task.WaitAsync(EventTimeout, ct));
+    }
+
+    [Theory]
+    [InlineData("ZZZZZ", "room_not_found")]
+    [InlineData("abc", "room_not_found")]
+    [InlineData("", "room_not_found")]
+    public async Task Joining_a_nonexistent_room_fails(string code, string expectedError)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var connection = await factory.ConnectAsync(ct);
+        var ex = await Assert.ThrowsAsync<HubException>(() => connection.InvokeAsync<PlayerSnapshot>("JoinRoom", code, null, ct));
+        string actualError = ex.Message[^expectedError.Length..];
+        Assert.Equal(expectedError, actualError);
     }
 }
